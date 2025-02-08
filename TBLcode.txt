@@ -1,0 +1,703 @@
+##Association between older TBL cancer patients with the ASMR and SDI at the regional level.
+#Setting up the workspace
+setwd("D:/SDI 22regional")
+library(reshape)
+library(ggplot2)
+library(ggrepel)
+library(readxl)
+
+TBL <- read.csv('TBL_region.csv',header = T)  
+TBL_super <-read.csv('TBL_super_region.csv',header = T) 
+TBL_Global<-subset(TBL_super,TBL_super$location_name=="Global")
+TBL_22 <- rbind(TBL,TBL_Global)      
+order_SDI <- read.csv('order_SDI.csv',header = F)
+SDI_2021<-read.csv("SDI_2021.csv",header = T)
+SDI_2021<-SDI_2021[,-1]
+
+SDI_2021 <- melt(SDI_2021,id.vars ='Location')
+
+SDI_2021$variable <- as.numeric(gsub('\\X',replacement = '', SDI_2021$variable))
+names(SDI_2021) <- c('location','year','SDI')
+
+
+SDI_2021$location[which(SDI_2021$location =='Central sub-Saharan Africa')] <-'Central Sub-Saharan Africa'
+SDI_2021$location[which(SDI_2021$location =='Eastern sub-Saharan Africa')] <-'Eastern Sub-Saharan Africa'
+SDI_2021$location[which(SDI_2021$location =='Southern sub-Saharan Africa')] <-'Southern Sub-Saharan Africa'
+SDI_2021$location[which(SDI_2021$location =='Western sub-Saharan Africa')] <-'Western Sub-Saharan Africa'
+
+### ASMR#####
+TBL_ASMR <- subset(TBL_22, TBL_22$age_name=='Age-standardized' & 
+                   TBL_22$metric_name== 'Rate' &
+                   TBL_22$measure_name=='Deaths'&
+                   TBL_22$sex_name=="Both")
+TBL_ASMR <- TBL_ASMR[,c(5,14,15)] ###location year val
+names(TBL_ASMR)[3] <- 'ASMR'
+names(TBL_ASMR)[1] <- 'location'
+### Merging SDI and ASR data
+TBL_ASMR_SDI <- merge(TBL_ASMR,SDI_2021,by=c('location','year'))
+
+TBL_ASMR_SDI$location <- factor(TBL_ASMR_SDI$location, 
+                              levels=order_SDI$V1, 
+                              ordered=TRUE) ##The location legends are in our order of precedence
+write.csv(TBL_ASMR_SDI,"22_ASMR_SDI.csv") 
+##Start mapping, the main variables are ASR and SDI, the color and shape of the graphics can be adjusted according to the different regions.
+#Also draw the fitted curve with all the data
+
+size_breaks <- seq(min(TBL_ASMR_SDI$year), max(TBL_ASMR_SDI$year), by = 5)
+size_labels <- size_breaks
+
+ggplot(TBL_ASMR_SDI, aes(SDI,ASMR)) + geom_point(aes(color = location, shape= location,size=year))+
+  scale_shape_manual(values = 1:22) + 
+  labs(x = "Socio-Demographic Index",  
+       y = "ASMR(per 100000") +
+  geom_smooth(colour='black',stat = "smooth",method='loess',se=F,span=0.5)+
+  scale_size_continuous(breaks = size_breaks, labels = size_labels,range = c(1, 3))
+
+result <- cor.test(TBL_ASMR_SDI$ASMR,TBL_ASMR_SDI$SDI , method = "spearman")
+summary(result)
+
+#Setting up the workspace
+
+setwd("D:/SDI 204countries")
+library(reshape)
+library(ggplot2)
+library(ggrepel)
+
+TBL<- vroom::vroom("D:\\TBL_country\\TBL_country.csv")
+SDI_2021<-read.csv("SDI_2021.csv",header = T)
+SDI_2021<-SDI_2021[,-1]
+
+#The reshape package is used to convert the SDI data format from a wide data format to a long data format.
+SDI_2021 <- melt(SDI_2021,id.vars ='Location')
+SDI_2021$variable <- as.numeric(gsub('\\X',replacement = '', SDI_2021$variable))
+names(SDI_2021) <- c('location','year','SDI')
+
+SDI_2021 <- SDI_2021[SDI_2021$year== 2021,] ###Data for 2021 only
+SDI<-SDI_2021
+SDI$location[SDI$location == "The Bahamas"] = 'Bahamas'
+SDI$location[SDI$location == "Ce d'Ivoire"] = "Côte d'Ivoire"
+SDI$location[SDI$location == "DR Congo"] = 'Democratic Republic of the Congo'
+SDI$location[SDI$location == "Congo (Brazzaville)"] = 'Republic of Congo'
+SDI$location[SDI$location == "The Gambia"] = 'Gambia'
+SDI$location[SDI$location == "North Macedonia"] = 'Macedonia'
+SDI$location[SDI$location == "Federated States of Micronesia"] = 'Micronesia (Federated States of)'
+SDI$location[SDI$location == "Taiwan (province of China)"] = 'Taiwan'
+SDI$location[SDI$location == "Virgin Islands"] = 'United States Virgin Islands'
+
+
+### Obtaining standardized incidence data for 2021####
+TBL_ASMR <- subset(TBL, TBL$age_name=='Age-standardized' & 
+                     TBL$metric_name == 'Rate' &
+                     TBL$measure_name=='Deaths' &
+                     TBL$year=='2021'&
+                     TBL$sex_name=='Both')
+TBL_ASMR <- TBL_ASMR[,c(5,14,15)] ###location year val
+names(TBL_ASMR)[3] <- 'ASMR'
+names(TBL_ASMR)[1] <- 'location'
+
+###consistency in naming####
+TBL_ASMR$location[TBL_ASMR$location == "Democratic People's Republic of Korea"] = 'North Korea'
+TBL_ASMR$location[TBL_ASMR$location == 'Russian Federation'] = 'Russia'
+TBL_ASMR$location[TBL_ASMR$location == 'United Kingdom'] = 'UK'
+TBL_ASMR$location[TBL_ASMR$location == "Iran (Islamic Republic of)"] = 'Iran'
+TBL_ASMR$location[TBL_ASMR$location == "Taiwan"] = 'Taiwan (Province of China)'
+TBL_ASMR$location[TBL_ASMR$location == "Republic of Korea"] = 'South Korea'
+TBL_ASMR$location[TBL_ASMR$location == "United Republic of Tanzania"] = 'Tanzania'
+TBL_ASMR$location[TBL_ASMR$location == "Côte d'Ivoire"] = 'Saint Helena'
+TBL_ASMR$location[TBL_ASMR$location == "Bolivia (Plurinational State of)"] = 'Bolivia'
+TBL_ASMR$location[TBL_ASMR$location == "Venezuela (Bolivarian Republic of)"] = 'Venezuela'
+TBL_ASMR$location[TBL_ASMR$location == "Czechia"] = 'Czech Republic'
+TBL_ASMR$location[TBL_ASMR$location == "Republic of Moldova"] = 'Moldova'
+TBL_ASMR$location[TBL_ASMR$location == "Viet Nam"] = 'Vietnam'
+TBL_ASMR$location[TBL_ASMR$location == "Lao People's Democratic Republic"] = 'Laos'
+TBL_ASMR$location[TBL_ASMR$location == "Syrian Arab Republic"] = 'Syria'
+TBL_ASMR$location[TBL_ASMR$location == "North Macedonia"] = 'Macedonia'
+TBL_ASMR$location[TBL_ASMR$location == "Brunei Darussalam"] = 'Brunei'
+TBL_ASMR$location[TBL_ASMR$location == "Gambia"] = 'The Gambia'
+TBL_ASMR$location[TBL_ASMR$location == "United States of America"] = 'USA'
+TBL_ASMR$location[TBL_ASMR$location == "Micronesia (Federated States of)"] = 'Federated States of Micronesia'
+TBL_ASMR$location[TBL_ASMR$location == "Bahamas"] = 'The Bahamas'
+TBL_ASMR$location[TBL_ASMR$location == "United States Virgin Islands"] = 'Virgin Islands'
+TBL_ASMR$location[TBL_ASMR$location == "Macedonia"] = 'North Macedonia'
+TBL_ASMR$location[TBL_ASMR$location == 'Democratic Republic of the Congo'] = 'DR Congo'
+TBL_ASMR$location[TBL_ASMR$location == 'Congo'] = 'Congo (Brazzaville)'
+TBL_ASMR$location[TBL_ASMR$location == 'Cabo Verde'] = 'Cape Verde'
+
+###Combining the two data
+TBL_ASMR_SDI_2021 <- merge(TBL_ASMR,SDI,by=c('location','year'))
+
+##chart
+ggplot(TBL_ASMR_SDI_2021, aes(SDI,ASMR,label=location)) + 
+  geom_point(aes(color = location)) + 
+  geom_text_repel(aes(color = location),size=2,fontface= 'bold',max.overlaps = 160) +
+  geom_smooth(colour='black',stat = "smooth",method='loess',se=F,span=0.5) +
+  labs(x = "Socio-Demographic Index",  
+       y = "ASMR(per 100000") +
+  theme(legend.position="none")
+
+result <- cor.test(TBL_ASMR_SDI_2021$ASMR,TBL_ASMR_SDI_2021$SDI , method = "spearman")
+
+
+##Decomposition analysis
+#Setting up the workspace
+setwd("D:/Decomposition analysis")
+
+##  Decomposition
+library(dplyr)
+library(data.table)
+library(purrr)
+library(tidyr)
+library(ggplot2)
+library(ggsci)
+
+## Reading disease data
+TBL_global <- read.csv('Global_TBL.csv')
+unique(TBL_global$age_name)
+
+
+age1 <- c("70-74 years","75-79 years","80-84","85-89","90-94","95+ years")  
+age2 <- c("70-74 years","75-79 years","80-84 years","85-89 years","90-94 years","95+ years")  
+
+var_name <- c("location_name","sex_name","year","age_name","val") 
+
+## sub function: converts age labels, e.g. “15-19 years” to “15 to 19”, to match demographic and disease data.
+TBL_in_both<- subset(TBL_global,
+                     (TBL_global$age_name %in% age1 ) &
+                       TBL_global$location_name=='Global')
+TBL_in_both$age_name<-gsub(" years","",TBL_in_both$age_name)
+TBL_in_both$age_name <- factor(TBL_in_both$age_name, levels = c("70-74", "75-79", "80-84", "85-89", 
+                                                                "90-94", "95+"))
+
+
+## Reading demographic data
+path = "D:\\GBD_population"
+fileName = dir(path)
+fileName
+
+var_name <- c("location_name","sex_name","year","age_id","age_name","val") 
+population <- data.frame()
+
+#population<-data.frame()
+for(k in 1:length(fileName)){
+  data = read.csv(file = paste(path,fileName[k],sep = "\\"),
+                  header = T,stringsAsFactors = F)
+  population=rbind(population,data)
+}
+population<-population%>% dplyr::select("location_name","sex_name","year","age_name","val") %>% 
+  filter(location_name %in% 'Global' & age_name %in% age2)
+###
+
+population$age_name<-gsub(" years","",population$age_name)
+
+population$age_name <- factor(population$age_name, levels = c("70-74", "75-79", "80-84", "85-89", 
+                                                                "90-94", "95+"))
+population<-subset(population,population$year==1990|population$year==2021)
+#str(population)
+
+head(population)
+
+#Calculation of the age composition of the entire population in 1990
+pop1<-subset(population,population$year==1990 & population$sex_name == "Both")
+tot1990<-sum(pop1$val)
+pop1$percent <- pop1$val/tot1990
+
+#Calculating the age composition of the entire population in 2021
+pop2<-subset(population,population$year==2021 & population$sex_name == "Both")
+tot2021<-sum(pop2$val)
+pop2$percent <- pop2$val/tot2021
+
+#Extraction of data used for analysis
+###a represents the age share and p represents the total population size to extract the data
+a_1990 <- pop1$percent
+a_2021 <- pop2$percent
+p_1990 <- tot1990
+p_2021 <- tot2021
+
+
+case_1990 <- TBL_in_both %>% filter(year == 1990 &
+                                      sex_name == "Both" &
+                                      location_name == "Global" &
+                                      metric_name == 'Rate' &
+                                      measure_name == 'Incidence')
+
+case_2021 <- TBL_in_both %>% filter(year == 2021 &
+                                      location_name == 'Global' &
+                                      sex_name == "Both" &
+                                      metric_name == 'Rate' &
+                                      measure_name == 'Incidence')
+
+r_1990 <- as.numeric(case_1990$val)/10^5 
+r_2021 <- as.numeric(case_2021$val)/10^5 
+##### Calculated according to the formula
+a_effect <- round((sum(a_2021*p_1990*r_1990) + sum(a_2021*p_2021*r_2021))/3 + 
+                    (sum(a_2021*p_1990*r_2021) + sum(a_2021*p_2021*r_1990))/6 -
+                    (sum(a_1990*p_1990*r_1990) + sum(a_1990*p_2021*r_2021))/3 -
+                    (sum(a_1990*p_1990*r_2021) + sum(a_1990*p_2021*r_1990))/6,3)
+
+p_effect <- round((sum(a_1990*p_2021*r_1990) + sum(a_2021*p_2021*r_2021))/3 + 
+                    (sum(a_1990*p_2021*r_2021) + sum(a_2021*p_2021*r_1990))/6 -
+                    (sum(a_1990*p_1990*r_1990) + sum(a_2021*p_1990*r_2021))/3 -
+                    (sum(a_1990*p_1990*r_2021) + sum(a_2021*p_1990*r_1990))/6,3)
+
+r_effect <- round((sum(a_1990*p_1990*r_2021) + sum(a_2021*p_2021*r_2021))/3 + 
+                    (sum(a_1990*p_2021*r_2021) + sum(a_2021*p_1990*r_2021))/6 -
+                    (sum(a_1990*p_1990*r_1990) + sum(a_2021*p_2021*r_1990))/3 -
+                    (sum(a_1990*p_2021*r_1990) + sum(a_2021*p_1990*r_1990))/6,3)
+
+overll_differ <- round(a_effect + p_effect + r_effect,2)
+
+a_percent <- round(a_effect/overll_differ*100,2)
+p_percent <- round(p_effect/overll_differ*100,2)
+r_percent <- round(r_effect/overll_differ*100,2)
+
+#Data merged to form a single dataset
+temp <- c("Both",overll_differ,a_effect,p_effect,r_effect,a_percent,
+          p_percent,r_percent) %>% t() %>% as.data.frame()
+
+
+
+#Generate header
+decomposition_name<-c('sex_name','overll_difference','a_effect','p_effect','r_effect','a_percent',
+                                            'p_percent','r_percent')
+names(temp) <- decomposition_name
+
+#Calculation of the age composition of the entire population in 1990
+pop1<-subset(population,population$year==1990 & population$sex_name == "Both")
+tot1990<-sum(pop1$val)
+pop1$percent <- pop1$val/tot1990
+
+#Calculating the age composition of the entire population in 2021
+pop2<-subset(population,population$year==2021 & population$sex_name == "Both")
+tot2021<-sum(pop2$val)
+pop2$percent <- pop2$val/tot2021
+
+#Extraction of data used for analysis
+### a represents the age share and p represents the total population size to extract the data
+a_1990 <- pop1$percent
+a_2021 <- pop2$percent
+p_1990 <- tot1990
+p_2021 <- tot2021
+
+## Data on access rates
+case_1990 <- TBL_in_both %>% filter(year == 1990 &
+                                sex_name == a &
+                                 location_name == "Global" &
+                                  metric_name == 'Rate' &
+                                measure_name == 'Incidence')
+
+ case_2021 <- TBL_in_both %>% filter(year == 2021 &
+                               location_name == 'Global' &
+                               sex_name == a &
+                              metric_name == 'Rate' &
+                              measure_name == 'Incidence')
+
+r_1990 <- as.numeric(case_1990$val)/10^5 
+r_2021 <- as.numeric(case_2021$val)/10^5 
+
+##### Calculated according to the formula
+a_effect <- round((sum(a_2021*p_1990*r_1990) + sum(a_2021*p_2021*r_2021))/3 + 
+                    (sum(a_2021*p_1990*r_2021) + sum(a_2021*p_2021*r_1990))/6 -
+                    (sum(a_1990*p_1990*r_1990) + sum(a_1990*p_2021*r_2021))/3 -
+                    (sum(a_1990*p_1990*r_2021) + sum(a_1990*p_2021*r_1990))/6,3)
+
+p_effect <- round((sum(a_1990*p_2021*r_1990) + sum(a_2021*p_2021*r_2021))/3 + 
+                    (sum(a_1990*p_2021*r_2021) + sum(a_2021*p_2021*r_1990))/6 -
+                    (sum(a_1990*p_1990*r_1990) + sum(a_2021*p_1990*r_2021))/3 -
+                    (sum(a_1990*p_1990*r_2021) + sum(a_2021*p_1990*r_1990))/6,3)
+
+r_effect <- round((sum(a_1990*p_1990*r_2021) + sum(a_2021*p_2021*r_2021))/3 + 
+                    (sum(a_1990*p_2021*r_2021) + sum(a_2021*p_1990*r_2021))/6 -
+                    (sum(a_1990*p_1990*r_1990) + sum(a_2021*p_2021*r_1990))/3 -
+                    (sum(a_1990*p_2021*r_1990) + sum(a_2021*p_1990*r_1990))/6,3)
+
+overll_differ <- round(a_effect + p_effect + r_effect,2)
+
+a_percent <- round(a_effect/overll_differ*100,2)
+p_percent <- round(p_effect/overll_differ*100,2)
+r_percent <- round(r_effect/overll_differ*100,2)
+
+#Data merged to form a single dataset
+temp <- c("Both",overll_differ,a_effect,p_effect,r_effect,a_percent,
+          p_percent,r_percent) %>% t() %>% as.data.frame()
+
+
+
+#Generate table headers and decompose analyzed data sets
+decomposition_name<-c('sex_name','overll_difference','a_effect','p_effect','r_effect','a_percent',
+                                            'p_percent','r_percent')
+names(temp) <- decomposition_name
+decomposition_data<-temp
+
+#make drawings
+
+names(decomposition_data)[2:5] <- c('Overll difference','Aging','Population','Epidemiological change')
+decomposition_plot <- decomposition_data[c(1:5)]
+decomposition_plot <- decomposition_plot%>%
+  pivot_longer(3:5, 
+               names_to = "varname",
+               values_to = "value") %>%
+  mutate(value=as.numeric(value)) %>%
+  mutate(sex_name=factor(sex_name,levels = sex_n,ordered = T))
+
+
+my_colors <- c("#FFFB73", "#33CCCC", "#FFC773")
+
+
+p <- ggplot(decomposition_plot, aes(x= sex_name,y=value, fill= varname)) +
+  geom_bar(stat="identity",position = "stack") +
+  coord_flip() + 
+  #scale_fill_nejm() + 
+  scale_fill_manual(values = my_colors) +
+  theme_bw()
+p
+
+decomposition_data$`Overll difference` <- as.numeric(decomposition_data$`Overll difference`)
+plot <- p+ geom_point(data=decomposition_data, mapping=aes(x=sex_name,y= `Overll difference`),fill='black',color='black',size=3)
+
+plot
+
+
+#global maps
+#Setting up the workspace
+setwd("D:/204 country maps")
+library(ggmap)
+library(maps)
+library(dplyr)
+library(RColorBrewer)
+
+TBL<- vroom::vroom("D:\\TBL_country\\TBL_country.csv")
+
+CIR_2021 <- subset(TBL,TBL$year==2021 & 
+                     TBL$age_name=='70+years' & 
+                     TBL$metric_name== 'Rate' &
+                     TBL$measure_name=='Incidence'&
+                     TBL$sex_name=='Both') 
+CIR_2021 <- CIR_2021[,c(5,15,16,17)]  ###Select Location & Data + 95% UI
+
+
+CIR_2021$val <- round(CIR_2021$val,2) ###Rate retained to 2 decimal places
+CIR_2021$lower <- round(CIR_2021$lower,2) 
+CIR_2021$upper <- round(CIR_2021$upper,2) 
+
+
+####  map for ASMR
+worldData <- map_data('world')  #####Extracting world-wide maps with the map package
+country_asr <- CIR_2021         ####
+country_asr$location <- as.character(country_asr$location_name) 
+
+###The purpose of the following code is to make the country name of country_asr$location match the country name of worldData
+
+
+country_asr$location[country_asr$location == 'United States of America'] = 'USA'
+country_asr$location[country_asr$location == 'Russian Federation'] = 'Russia'
+country_asr$location[country_asr$location == 'United Kingdom'] = 'UK'
+country_asr$location[country_asr$location == 'Congo'] = 'Republic of Congo'
+country_asr$location[country_asr$location == "Iran (Islamic Republic of)"] = 'Iran'
+country_asr$location[country_asr$location == "Democratic People's Republic of Korea"] = 'North Korea'
+country_asr$location[country_asr$location == "Taiwan (Province of China)"] = 'Taiwan'
+country_asr$location[country_asr$location == "Republic of Korea"] = 'South Korea'
+country_asr$location[country_asr$location == "United Republic of Tanzania"] = 'Tanzania'
+country_asr$location[country_asr$location == "C?te d'Ivoire"] = 'Saint Helena'
+country_asr$location[country_asr$location == "Bolivia (Plurinational State of)"] = 'Bolivia'
+country_asr$location[country_asr$location == "Venezuela (Bolivarian Republic of)"] = 'Venezuela'
+country_asr$location[country_asr$location == "Czechia"] = 'Czech Republic'
+country_asr$location[country_asr$location == "Republic of Moldova"] = 'Moldova'
+country_asr$location[country_asr$location == "Viet Nam"] = 'Vietnam'
+country_asr$location[country_asr$location == "Lao People's Democratic Republic"] = 'Laos'
+country_asr$location[country_asr$location == "Syrian Arab Republic"] = 'Syria'
+country_asr$location[country_asr$location == "North Macedonia"] = 'Macedonia'
+country_asr$location[country_asr$location == "Micronesia (Federated States of)"] = 'Micronesia'
+country_asr$location[country_asr$location == "Macedonia"] = 'North Macedonia'
+country_asr$location[country_asr$location == "Trinidad and Tobago"] = 'Trinidad'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Trinidad",])
+country_asr$location[country_asr$location == "Trinidad"] = 'Tobago'
+country_asr$location[country_asr$location == "Cabo Verde"] = 'Cape Verde'
+country_asr$location[country_asr$location == "United States Virgin Islands"] = 'Virgin Islands'
+country_asr$location[country_asr$location == "Antigua and Barbuda"] = 'Antigu'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Antigu",])
+country_asr$location[country_asr$location == "Antigu"] = 'Barbuda'
+country_asr$location[country_asr$location == "Saint Kitts and Nevis"] = 'Saint Kitts'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Saint Kitts",])
+country_asr$location[country_asr$location == "Saint Kitts"] = 'Nevis'
+country_asr$location[country_asr$location == "Côte d'Ivoire"] = 'Ivory Coast'
+country_asr$location[country_asr$location == "Saint Vincent and the Grenadines"] = 'Saint Vincent'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Saint Vincent",])
+country_asr$location[country_asr$location == "Saint Vincent"] = 'Grenadines'
+country_asr$location[country_asr$location == "Eswatini"] = 'Swaziland'
+country_asr$location[country_asr$location == "Brunei Darussalam"] = 'Brunei'
+country_asr$location[country_asr$location == "Türkiye"] = 'Turkey'
+
+
+
+#write.csv(country_asr,"ASMR_204.csv")
+
+total <- full_join(worldData,country_asr,by = c('region'='location'))##Combining the two data bases
+mycolor2<-brewer.pal(5, "Spectral")   
+summary(total$val)
+
+quantile(total$val,seq(0.1,1,0.1),na.rm = T)
+
+total <- total %>% mutate(val2 = cut(val, breaks = c(0.20,1.48,5.17,21.83,33),
+                                     labels = c("0.2~1.48","1.48~5.17",
+                                          "5.17~21.83","21.83+"),  
+                                     include.lowest = T,right = T))
+total1<-na.omit(total)
+p <- ggplot()
+p1 <- p + geom_polygon(data=total, 
+                       aes(x=long, y=lat, group = group,fill=val2),
+                       colour="gray",size = .01) + 
+  scale_fill_manual(values = mycolor2) +
+  theme_void()+labs(x="", y="")+
+  guides(fill = guide_legend(title='CIR(/10^5)'))+
+  theme(legend.position = 'right')
+p1
+
+
+
+CDR_2021 <- subset(TBL,TBL$year==2021 & 
+                     TBL$age_name=='70+years' & 
+                     TBL$metric_name== 'Rate' &
+                     TBL$measure_name=='Deaths'&
+                     TBL$sex_name=='Both') 
+CDR_2021 <- CDR_2021[,c(5,15,16,17)]  ###Select Location & Data + 95% UI
+
+
+CDR_2021$val <- round(CDR_2021$val,2) ###Rate retained to 2 decimal places
+CDR_2021$lower <- round(CDR_2021$lower,2) 
+CDR_2021$upper <- round(CDR_2021$upper,2) 
+
+
+####  map for ASMR
+worldData <- map_data('world')
+country_asr <- CDR_2021
+country_asr$location <- as.character(country_asr$location_name) 
+
+###The purpose of the following code is to make the country name of country_asr$location match the country name of worldData
+
+country_asr$location[country_asr$location == 'United States of America'] = 'USA'
+country_asr$location[country_asr$location == 'Russian Federation'] = 'Russia'
+country_asr$location[country_asr$location == 'United Kingdom'] = 'UK'
+country_asr$location[country_asr$location == 'Congo'] = 'Republic of Congo'
+country_asr$location[country_asr$location == "Iran (Islamic Republic of)"] = 'Iran'
+country_asr$location[country_asr$location == "Democratic People's Republic of Korea"] = 'North Korea'
+country_asr$location[country_asr$location == "Taiwan (Province of China)"] = 'Taiwan'
+country_asr$location[country_asr$location == "Republic of Korea"] = 'South Korea'
+country_asr$location[country_asr$location == "United Republic of Tanzania"] = 'Tanzania'
+country_asr$location[country_asr$location == "C?te d'Ivoire"] = 'Saint Helena'
+country_asr$location[country_asr$location == "Bolivia (Plurinational State of)"] = 'Bolivia'
+country_asr$location[country_asr$location == "Venezuela (Bolivarian Republic of)"] = 'Venezuela'
+country_asr$location[country_asr$location == "Czechia"] = 'Czech Republic'
+country_asr$location[country_asr$location == "Republic of Moldova"] = 'Moldova'
+country_asr$location[country_asr$location == "Viet Nam"] = 'Vietnam'
+country_asr$location[country_asr$location == "Lao People's Democratic Republic"] = 'Laos'
+country_asr$location[country_asr$location == "Syrian Arab Republic"] = 'Syria'
+country_asr$location[country_asr$location == "North Macedonia"] = 'Macedonia'
+country_asr$location[country_asr$location == "Micronesia (Federated States of)"] = 'Micronesia'
+country_asr$location[country_asr$location == "Macedonia"] = 'North Macedonia'
+country_asr$location[country_asr$location == "Trinidad and Tobago"] = 'Trinidad'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Trinidad",])
+country_asr$location[country_asr$location == "Trinidad"] = 'Tobago'
+country_asr$location[country_asr$location == "Cabo Verde"] = 'Cape Verde'
+country_asr$location[country_asr$location == "United States Virgin Islands"] = 'Virgin Islands'
+country_asr$location[country_asr$location == "Antigua and Barbuda"] = 'Antigu'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Antigu",])
+country_asr$location[country_asr$location == "Antigu"] = 'Barbuda'
+country_asr$location[country_asr$location == "Saint Kitts and Nevis"] = 'Saint Kitts'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Saint Kitts",])
+country_asr$location[country_asr$location == "Saint Kitts"] = 'Nevis'
+country_asr$location[country_asr$location == "Côte d'Ivoire"] = 'Ivory Coast'
+country_asr$location[country_asr$location == "Saint Vincent and the Grenadines"] = 'Saint Vincent'
+country_asr <- rbind(country_asr,country_asr[country_asr$location == "Saint Vincent",])
+country_asr$location[country_asr$location == "Saint Vincent"] = 'Grenadines'
+country_asr$location[country_asr$location == "Eswatini"] = 'Swaziland'
+country_asr$location[country_asr$location == "Brunei Darussalam"] = 'Brunei'
+country_asr$location[country_asr$location == "Türkiye"] = 'Turkey'
+
+
+
+#write.csv(country_asr,"ASMR_204.csv")
+
+total <- full_join(worldData,country_asr,by = c('region'='location'))##Combining the two data bases
+mycolor2<-brewer.pal(5, "Spectral")   
+#pdf("2019_ASR_Incidence_map.pdf")
+summary(total$val)
+quantile(country_asr$val,seq(0.1,1,0.1))
+
+total <- total %>% mutate(val2 = cut(val, breaks = c(0.029,0.240,0.751,1.090,5.23),
+                                     labels = c("0.029~0.240","0.240~0.751","0.751~1.090",
+                                                "1.090+"), 
+                                     include.lowest = T,right = T))
+p <- ggplot()
+p2 <- p + geom_polygon(data=total, 
+                       aes(x=long, y=lat, group = group,fill=val2),
+                       colour="gray",size = .01) + 
+  scale_fill_manual(values = mycolor2) +
+  theme_void()+labs(x="", y="")+
+  guides(fill = guide_legend(title='CMR(/10^5)'))+
+  theme(legend.position = 'right')
+p2
+
+#BAPC
+setwd("D:/10 BAPC")
+
+library(BAPC)
+library(openxlsx)
+library(INLA)
+library(nordpred)
+library(reshape)
+library(data.table)
+library(tidyr)
+library(tidyverse)
+library(epitools)
+library(ggplot2)
+
+#inla.upgrade() # for the stable version
+
+
+# Age stratification of morbidity data needs
+age1 <- c("70-74 years",
+          "75-79 years","80-84","85-89","90-94","95+ years")   
+
+
+#### Percentage of standard population to be used for redeployment
+ages_2 <- c("70 to 74", "75 to 79", "80 to 84", "85 to 89",
+            "90 to 94", "95 plus")
+
+#### Projected age structure
+ages_3 <- c("70 to 74", "75 to 79", "80 to 84", "85 to 89",
+            "90 to 94", "95 plus")
+
+
+# Standard age structure data age_stand
+age_stand <- read.csv("age_stand.csv")
+#Standard Component Ratio
+wstand <- c(age_stand$std_population[1:2] %>% as.numeric() %>% sum(),
+            age_stand$std_population[3:21] %>% as.numeric())/sum(age_stand$std_population[1:21])
+wstand
+sum(wstand)
+
+
+TBL_global <- read.csv('Global_TBL.csv')
+########Both#######
+####Incidence####
+TBL_in_both<- subset(TBL_global,
+                     (TBL_global$age_name %in% age1 ) &
+                       TBL_global$sex_name=="Male"&
+                       TBL_global$location_name=='Global'&
+                       TBL_global$metric_name== 'Number' &
+                       TBL_global$measure_name=='Incidence') 
+
+unique(TBL_in_both$age_name)
+TBL_in_both$age_name<-gsub(" years","",TBL_in_both$age_name)
+TBL_in_both$age_name <- factor(TBL_in_both$age_name, levels = c("70-74", "75-79", "80-84", "85-89", 
+                                                                "90-94", "95+"))
+
+# Extract data  Measure_name,age_name,year,val
+TBL_in_both <- TBL_in_both[,c("measure_name", "age_name","year","val")]
+
+#lengthen to widen
+TBL_in_both_n <- reshape2::dcast(data=TBL_in_both, year ~ age_name, value.var="val")
+rownames(TBL_in_both_n) <- TBL_in_both_n$year
+TBL_in_both_n <- TBL_in_both_n[,-1]
+
+
+#TBL_in_both_n <- apply(TBL_in_both_n,c(1,2),as.integer) %>% as.data.frame
+####meaning####
+TBL_in_both_n <- apply(TBL_in_both_n,c(1,2),round) %>% as.data.frame
+
+
+
+####Demographic data#####
+###Demographic data
+age2 <- c("70-74 years",
+          "75-79 years","80-84 years","85-89 years","90-94 years","95+ years")   ###20个年龄
+
+var_name <- c("location_name", "sex_name", "year", "age_name", "val") 
+GBD_population  <-  data.frame()
+#names(GBD_population) = var_name
+path = "D:\\GBD_population"
+fileName = dir(path)
+fileName
+GBD_population <- data.frame()
+
+#population<-data.frame()
+for(k in 1:length(fileName)){
+  data = read.csv(file = paste(path,fileName[k],sep = "\\"),
+                  header = T,stringsAsFactors = F)
+  GBD_population=rbind(GBD_population,data)
+}
+GBD_population<-GBD_population%>% dplyr::select(var_name) %>% 
+  filter(location_name %in% 'Global' & age_name %in% age2 )
+
+# write.csv(GBD_population,file = "GBD_population.csv")
+# GBD_population<-read.csv("GBD_population.csv")
+GBD_population$age_name<-gsub(" years","",GBD_population$age_name)
+
+#GBD_population <- GBD_population[!duplicated(GBD_population),]
+#GBD_Both_population<- subset(GBD_population,GBD_population$sex_name =="Both")
+#GBD_Female_population<- subset(GBD_population,GBD_population$sex_name =="Female")
+GBD_Male_population<- subset(GBD_population,GBD_population$sex_name =="Male")
+
+
+
+ ######Demographic data#####
+prediction_var_name <- c("location_name", "sex", "year_id", "age_group_name", "val")
+GBD_population_prediction <- fread("IHME_POP_2017_2100_POP_REFERENCE_Y2020M05D01.csv") %>%
+  dplyr::select(prediction_var_name) %>%
+  dplyr::filter(location_name %in% 'Global' & year_id %in% 2022:2040
+                & sex %in% "Male")
+unique(GBD_population_prediction$age_group_name)
+
+
+names(GBD_population_prediction)[names(GBD_population_prediction) == 'age_group_name'] <- 'age_name'
+
+GBD_population_prediction$age_name<-gsub(" to ","-",GBD_population_prediction$age_name)
+GBD_population_prediction$age_name<-gsub(" plus","+",GBD_population_prediction$age_name)
+
+unique(GBD_population_prediction$age_name)
+
+colnames(GBD_population_prediction)<-var_name
+#####Consolidation of demographic data#####
+GBD <- rbind(GBD_Male_population, GBD_population_prediction)
+GBD$age_name<-factor(GBD$age_name, levels = c("70-74", "75-79", "80-84", "85-89", 
+                                              "90-94", "95+"))
+unique(GBD$age_name)
+
+
+# Organize demographic data into a form recognizable to BAPC
+
+GBD_Global_Male <- subset(GBD,location_name=="Global" & sex_name=="Male")
+GBD_Global_Male$age_name<-factor(GBD_Global_Male$age_name, levels = c("70-74", "75-79", "80-84", "85-89", 
+                                                                 "90-94", "95+"))
+GBD_Global_Male_n <- dcast(data=GBD_Global_Male, year~age_name, value.var=c("val")) %>% as.data.frame()
+
+
+rownames(GBD_Global_Male_n) <- GBD_Global_Male_n$year
+
+GBD_Global_Male_n <- GBD_Global_Male_n[,-1]
+
+GBD_Global_Male_n <- apply(GBD_Global_Male_n, c(1,2), as.numeric) %>% as.data.frame()
+GBD_Global_Male_n <- apply(GBD_Global_Male_n, c(1,2), round) %>% as.data.frame()
+
+
+
+# Supplementary years for which data on the number of cases are not available
+TBL_pro <- matrix(data=NA, nrow=2040-2021, ncol=ncol(GBD_Global_Male_n)) %>% as.data.frame()
+rownames(TBL_pro) <- seq(2022, 2040, 1)
+colnames(TBL_pro) <- names(TBL_in_both_n)
+
+TBL_pro_n <- rbind(TBL_in_both_n, TBL_pro)
+TBL_pro_n <- apply(TBL_pro_n, c(1,2), as.numeric) %>% as.data.frame()
+TBL_pro_n <- apply(TBL_pro_n, c(1,2), round) %>% as.data.frame()
+
+require(INLA)
+#sum(wstand)
+# model prediction
+diabetes3_input <- APCList(TBL_pro_n, GBD_Global_Male_n, gf=5)##gf is the year interval
+diabetes3_bapc_result <- BAPC(diabetes3_input, predict=list(npredict=15, retro=T), secondDiff=FALSE, stdweight=wstand, verbose=F)
+
+p1<-plotBAPC(diabetes3_bapc_result, scale=10^5, type = 'ageStdRate', showdata = TRUE)
+
+
+# Extract data
+Male_de =data.frame(diabetes3_bapc_result@agestd.rate)
